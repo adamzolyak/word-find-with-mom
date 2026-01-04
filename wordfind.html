@@ -287,11 +287,13 @@
         ['H', 'L', 'N', 'N', 'R', 'Z'],
       ]
 
+      const PRE_GAME_SECONDS = 30
+      const GAME_DURATION_SECONDS = 180
+
       let currentBoard = []
+      let gameStartTime = null // UTC timestamp (ms) when game timer begins
       let timerInterval = null
-      let preStartInterval = null
-      let timeRemaining = 180 // 3 minutes in seconds
-      let preStartRemaining = 30 // 1 minute countdown before start
+      let soundPlayed = false
 
       // Format seconds as M:SS
       function formatTime(seconds) {
@@ -300,40 +302,11 @@
         return `${mins}:${secs.toString().padStart(2, '0')}`
       }
 
-      // Update timer display
-      function updateTimerDisplay() {
-        const timerEl = document.getElementById('timer')
-        const statusEl = document.getElementById('timer-status')
-
-        timerEl.textContent = formatTime(timeRemaining)
-        timerEl.classList.remove('warning', 'danger', 'finished')
-
-        if (timeRemaining === 0) {
-          timerEl.classList.add('finished')
-          statusEl.textContent = "Time's up!"
-        } else if (timeRemaining <= 30) {
-          timerEl.classList.add('danger')
-          statusEl.textContent = 'Final seconds!'
-        } else if (timeRemaining <= 60) {
-          timerEl.classList.add('warning')
-          statusEl.textContent = 'One minute left!'
-        } else {
-          statusEl.textContent = 'Time remaining'
-        }
-      }
-
-      // Update pre-start countdown display
-      function updatePreStartDisplay() {
-        const timerEl = document.getElementById('timer')
-        const statusEl = document.getElementById('timer-status')
-
-        timerEl.textContent = formatTime(timeRemaining)
-        timerEl.classList.remove('warning', 'danger', 'finished')
-        statusEl.textContent = `Starting in ${formatTime(preStartRemaining)}`
-      }
-
       // Play end sound using Web Audio API
       function playEndSound() {
+        if (soundPlayed) return
+        soundPlayed = true
+
         const audioContext = new (window.AudioContext || window.webkitAudioContext)()
 
         // Play a series of beeps
@@ -357,45 +330,71 @@
         })
       }
 
-      // Start the game timer countdown
-      function startGameTimer() {
+      // Update timer based on global UTC time
+      function updateTimer() {
+        const now = Date.now()
+        const timerEl = document.getElementById('timer')
         const statusEl = document.getElementById('timer-status')
-        statusEl.textContent = 'Time remaining'
 
-        timerInterval = setInterval(() => {
-          timeRemaining--
-          updateTimerDisplay()
+        timerEl.classList.remove('warning', 'danger', 'finished')
 
-          if (timeRemaining <= 0) {
-            clearInterval(timerInterval)
-            timerInterval = null
-            playEndSound()
-          }
-        }, 1000)
+        // Pre-game countdown phase
+        if (now < gameStartTime) {
+          const preStartRemaining = Math.ceil((gameStartTime - now) / 1000)
+          timerEl.textContent = formatTime(GAME_DURATION_SECONDS)
+          statusEl.textContent = `Starting in ${formatTime(preStartRemaining)}`
+          return
+        }
+
+        // Game timer phase
+        const elapsed = Math.floor((now - gameStartTime) / 1000)
+        const remaining = Math.max(0, GAME_DURATION_SECONDS - elapsed)
+
+        timerEl.textContent = formatTime(remaining)
+
+        if (remaining === 0) {
+          timerEl.classList.add('finished')
+          statusEl.textContent = "Time's up!"
+          clearInterval(timerInterval)
+          timerInterval = null
+          playEndSound()
+        } else if (remaining <= 30) {
+          timerEl.classList.add('danger')
+          statusEl.textContent = 'Final seconds!'
+        } else if (remaining <= 60) {
+          timerEl.classList.add('warning')
+          statusEl.textContent = 'One minute left!'
+        } else {
+          statusEl.textContent = 'Time remaining'
+        }
       }
 
-      // Start the pre-game countdown (1 minute before timer starts)
-      function startPreGameCountdown() {
-        // Clear any existing timers
+      // Start the synchronized timer
+      function startSyncedTimer(startTime) {
+        // Clear any existing timer
         clearInterval(timerInterval)
-        clearInterval(preStartInterval)
         timerInterval = null
-        preStartInterval = null
+        soundPlayed = false
 
-        timeRemaining = 180
-        preStartRemaining = 30
-        updatePreStartDisplay()
+        gameStartTime = startTime
+        updateTimer()
 
-        preStartInterval = setInterval(() => {
-          preStartRemaining--
-          updatePreStartDisplay()
+        // Update every 100ms for smooth display
+        timerInterval = setInterval(updateTimer, 100)
+      }
 
-          if (preStartRemaining <= 0) {
-            clearInterval(preStartInterval)
-            preStartInterval = null
-            startGameTimer()
-          }
-        }, 1000)
+      // Get start time from URL or create new one
+      function getStartTimeFromURL() {
+        const params = new URLSearchParams(window.location.search)
+        const startParam = params.get('start')
+        return startParam ? parseInt(startParam, 10) : null
+      }
+
+      // Update URL with start time
+      function updateURLWithStartTime(startTime) {
+        const url = new URL(window.location)
+        url.searchParams.set('start', startTime.toString())
+        history.replaceState(null, '', url)
       }
 
       // Shuffle array in place (Fisher-Yates)
@@ -426,11 +425,12 @@
         })
       }
 
-      // Update URL with current board state
-      function updateURL(letters) {
+      // Update URL with current board state and start time
+      function updateURL(letters, startTime) {
         const boardString = letters.join('')
         const url = new URL(window.location)
         url.searchParams.set('board', boardString)
+        url.searchParams.set('start', startTime.toString())
         history.replaceState(null, '', url)
       }
 
@@ -449,8 +449,10 @@
       function newGame() {
         currentBoard = generateBoard()
         renderBoard(currentBoard)
-        updateURL(currentBoard)
-        startPreGameCountdown()
+        // Set game start time to now + pre-game delay
+        const startTime = Date.now() + PRE_GAME_SECONDS * 1000
+        updateURL(currentBoard, startTime)
+        startSyncedTimer(startTime)
       }
 
       // Copy URL to clipboard
@@ -486,11 +488,12 @@
       // Initialize on page load
       function init() {
         const urlBoard = getBoardFromURL()
+        const urlStartTime = getStartTimeFromURL()
 
-        if (urlBoard) {
+        if (urlBoard && urlStartTime) {
           currentBoard = urlBoard
           renderBoard(currentBoard)
-          startPreGameCountdown()
+          startSyncedTimer(urlStartTime)
         } else {
           newGame()
         }
