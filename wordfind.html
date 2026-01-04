@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Word Find with Mom</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: #fff;
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 500px;
+        width: 100%;
+      }
+
+      h1 {
+        text-align: center;
+        color: #1a1a2e;
+        margin-bottom: 25px;
+        font-size: 2rem;
+        letter-spacing: 0.1em;
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        margin-bottom: 25px;
+        aspect-ratio: 1;
+      }
+
+      .cell {
+        background: linear-gradient(145deg, #f5f0e1, #e8e0c8);
+        border: 3px solid #8b7355;
+        border-radius: 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: clamp(1.5rem, 8vw, 2.5rem);
+        font-weight: bold;
+        color: #2c1810;
+        text-transform: uppercase;
+        box-shadow: inset 2px 2px 4px rgba(255, 255, 255, 0.5),
+          inset -2px -2px 4px rgba(0, 0, 0, 0.1), 3px 3px 6px rgba(0, 0, 0, 0.2);
+        user-select: none;
+        aspect-ratio: 1;
+      }
+
+      .cell.qu {
+        font-size: clamp(1.2rem, 6vw, 2rem);
+      }
+
+      .buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      button {
+        padding: 14px 28px;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-width: 140px;
+      }
+
+      .new-game {
+        background: linear-gradient(145deg, #4caf50, #388e3c);
+        color: white;
+      }
+
+      .new-game:hover {
+        background: linear-gradient(145deg, #5cbf60, #43a047);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+      }
+
+      .share {
+        background: linear-gradient(145deg, #2196f3, #1976d2);
+        color: white;
+      }
+
+      .share:hover {
+        background: linear-gradient(145deg, #42a5f5, #1e88e5);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: #333;
+        color: white;
+        padding: 14px 28px;
+        border-radius: 10px;
+        font-size: 1rem;
+        opacity: 0;
+        transition: all 0.3s ease;
+        z-index: 1000;
+      }
+
+      .toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+
+      @media (max-width: 400px) {
+        .container {
+          padding: 20px;
+        }
+
+        .board {
+          gap: 5px;
+        }
+
+        button {
+          padding: 12px 20px;
+          min-width: 120px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Word Find With Mom</h1>
+      <div class="board" id="board"></div>
+      <div class="buttons">
+        <button class="new-game" onclick="newGame()">New Game</button>
+        <button class="share" onclick="shareBoard()">Share URL</button>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      // Big dice (25 dice, 6 faces each)
+      // Q represents "Qu" in display
+      const DICE = [
+        ['A', 'A', 'A', 'F', 'R', 'S'],
+        ['A', 'A', 'E', 'E', 'E', 'E'],
+        ['A', 'A', 'F', 'I', 'R', 'S'],
+        ['A', 'D', 'E', 'N', 'N', 'N'],
+        ['A', 'E', 'E', 'E', 'E', 'M'],
+        ['A', 'E', 'E', 'G', 'M', 'U'],
+        ['A', 'E', 'G', 'M', 'N', 'N'],
+        ['A', 'F', 'I', 'R', 'S', 'Y'],
+        ['B', 'J', 'K', 'Q', 'X', 'Z'],
+        ['C', 'C', 'E', 'N', 'S', 'T'],
+        ['C', 'E', 'I', 'I', 'L', 'T'],
+        ['C', 'E', 'I', 'L', 'P', 'T'],
+        ['C', 'E', 'I', 'P', 'S', 'T'],
+        ['D', 'D', 'H', 'N', 'O', 'T'],
+        ['D', 'H', 'H', 'L', 'O', 'R'],
+        ['D', 'H', 'L', 'N', 'O', 'R'],
+        ['E', 'I', 'I', 'I', 'T', 'T'],
+        ['E', 'M', 'O', 'T', 'T', 'T'],
+        ['E', 'N', 'S', 'S', 'S', 'U'],
+        ['F', 'I', 'P', 'R', 'S', 'Y'],
+        ['G', 'O', 'R', 'R', 'V', 'W'],
+        ['H', 'I', 'P', 'R', 'R', 'Y'],
+        ['N', 'O', 'O', 'T', 'U', 'W'],
+        ['O', 'O', 'O', 'T', 'T', 'U'],
+        ['H', 'L', 'N', 'N', 'R', 'Z'],
+      ]
+
+      let currentBoard = []
+
+      // Shuffle array in place (Fisher-Yates)
+      function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[array[i], array[j]] = [array[j], array[i]]
+        }
+        return array
+      }
+
+      // Generate a new random board
+      function generateBoard() {
+        const shuffledDice = shuffle([...DICE])
+        return shuffledDice.map((die) => die[Math.floor(Math.random() * 6)])
+      }
+
+      // Render the board to the DOM
+      function renderBoard(letters) {
+        const boardEl = document.getElementById('board')
+        boardEl.innerHTML = ''
+
+        letters.forEach((letter) => {
+          const cell = document.createElement('div')
+          cell.className = 'cell' + (letter === 'Q' ? ' qu' : '')
+          cell.textContent = letter === 'Q' ? 'Qu' : letter
+          boardEl.appendChild(cell)
+        })
+      }
+
+      // Update URL with current board state
+      function updateURL(letters) {
+        const boardString = letters.join('')
+        const url = new URL(window.location)
+        url.searchParams.set('board', boardString)
+        history.replaceState(null, '', url)
+      }
+
+      // Get board from URL if present
+      function getBoardFromURL() {
+        const params = new URLSearchParams(window.location.search)
+        const boardString = params.get('board')
+
+        if (boardString && boardString.length === 25) {
+          return boardString.toUpperCase().split('')
+        }
+        return null
+      }
+
+      // Start a new game
+      function newGame() {
+        currentBoard = generateBoard()
+        renderBoard(currentBoard)
+        updateURL(currentBoard)
+      }
+
+      // Copy URL to clipboard
+      function shareBoard() {
+        navigator.clipboard
+          .writeText(window.location.href)
+          .then(() => {
+            showToast('URL copied to clipboard!')
+          })
+          .catch(() => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea')
+            textArea.value = window.location.href
+            document.body.appendChild(textArea)
+            textArea.select()
+            document.execCommand('copy')
+            document.body.removeChild(textArea)
+            showToast('URL copied to clipboard!')
+          })
+      }
+
+      // Show toast notification
+      function showToast(message) {
+        const toast = document.getElementById('toast')
+        toast.textContent = message
+        toast.classList.add('show')
+
+        setTimeout(() => {
+          toast.classList.remove('show')
+        }, 2000)
+      }
+
+      // Initialize on page load
+      function init() {
+        const urlBoard = getBoardFromURL()
+
+        if (urlBoard) {
+          currentBoard = urlBoard
+          renderBoard(currentBoard)
+        } else {
+          newGame()
+        }
+      }
+
+      init()
+    </script>
+  </body>
+</html>
