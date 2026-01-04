@@ -127,6 +127,39 @@
         opacity: 1;
       }
 
+      .rules {
+        background: #f8f6f0;
+        border-radius: 10px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e0dcd0;
+      }
+
+      .rules h2 {
+        font-size: 1rem;
+        color: #1a1a2e;
+        margin-bottom: 10px;
+      }
+
+      .rules ul {
+        font-size: 0.85rem;
+        color: #444;
+        padding-left: 20px;
+        line-height: 1.6;
+      }
+
+      .rules li {
+        margin-bottom: 4px;
+      }
+
+      .rules h2 + ul {
+        margin-bottom: 12px;
+      }
+
+      .rules h2:not(:first-child) {
+        margin-top: 8px;
+      }
+
       @media (max-width: 400px) {
         .container {
           padding: 20px;
@@ -147,6 +180,30 @@
     <div class="container">
       <h1>Word Find With Mom</h1>
       <div class="board" id="board"></div>
+      <div class="rules">
+        <h2>Word Find Rules</h2>
+        <ul>
+          <li>Decide how many rounds to play; 3-5 is common</li>
+          <li>3 minute time limit per round</li>
+          <li>
+            Form words by connecting adjacent letters (horizontally, vertically, or diagonally)
+            moving in any direction
+          </li>
+          <li>Words must be at least 4 letters long and can't be proper nouns</li>
+          <li>Each letter space can only be used once per word</li>
+          <li>"Qu" counts as two letters</li>
+        </ul>
+        <h2>Scoring</h2>
+        <ul>
+          <li>Players compare lists, discarding any words that multiple players found</li>
+          <li>A player may challenge a word; use a dictionary to confirm</li>
+          <li>4 letters = 1 point</li>
+          <li>5 letters = 2 points</li>
+          <li>6 letters = 3 points</li>
+          <li>7 letters = 5 points</li>
+          <li>8+ letters = 11 points</li>
+        </ul>
+      </div>
       <div class="buttons">
         <button class="new-game" onclick="newGame()">New Game</button>
         <button class="share" onclick="shareBoard()">Share URL</button>
