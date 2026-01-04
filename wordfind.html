@@ -160,6 +160,47 @@
         margin-top: 8px;
       }
 
+      .timer-container {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .timer {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #1a1a2e;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .timer.warning {
+        color: #f57c00;
+      }
+
+      .timer.danger {
+        color: #d32f2f;
+        animation: pulse 0.5s ease-in-out infinite;
+      }
+
+      .timer.finished {
+        color: #d32f2f;
+      }
+
+      .timer-status {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 5px;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+
       @media (max-width: 400px) {
         .container {
           padding: 20px;
@@ -179,6 +220,10 @@
   <body>
     <div class="container">
       <h1>Word Find With Mom</h1>
+      <div class="timer-container">
+        <div class="timer" id="timer">3:00</div>
+        <div class="timer-status" id="timer-status">Starting in 1:00</div>
+      </div>
       <div class="board" id="board"></div>
       <div class="rules">
         <h2>Word Find Rules</h2>
@@ -243,6 +288,115 @@
       ]
 
       let currentBoard = []
+      let timerInterval = null
+      let preStartInterval = null
+      let timeRemaining = 180 // 3 minutes in seconds
+      let preStartRemaining = 30 // 1 minute countdown before start
+
+      // Format seconds as M:SS
+      function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${mins}:${secs.toString().padStart(2, '0')}`
+      }
+
+      // Update timer display
+      function updateTimerDisplay() {
+        const timerEl = document.getElementById('timer')
+        const statusEl = document.getElementById('timer-status')
+
+        timerEl.textContent = formatTime(timeRemaining)
+        timerEl.classList.remove('warning', 'danger', 'finished')
+
+        if (timeRemaining === 0) {
+          timerEl.classList.add('finished')
+          statusEl.textContent = "Time's up!"
+        } else if (timeRemaining <= 30) {
+          timerEl.classList.add('danger')
+          statusEl.textContent = 'Final seconds!'
+        } else if (timeRemaining <= 60) {
+          timerEl.classList.add('warning')
+          statusEl.textContent = 'One minute left!'
+        } else {
+          statusEl.textContent = 'Time remaining'
+        }
+      }
+
+      // Update pre-start countdown display
+      function updatePreStartDisplay() {
+        const timerEl = document.getElementById('timer')
+        const statusEl = document.getElementById('timer-status')
+
+        timerEl.textContent = formatTime(timeRemaining)
+        timerEl.classList.remove('warning', 'danger', 'finished')
+        statusEl.textContent = `Starting in ${formatTime(preStartRemaining)}`
+      }
+
+      // Play end sound using Web Audio API
+      function playEndSound() {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+
+        // Play a series of beeps
+        const frequencies = [523, 659, 784, 1047] // C5, E5, G5, C6
+        frequencies.forEach((freq, i) => {
+          const oscillator = audioContext.createOscillator()
+          const gainNode = audioContext.createGain()
+
+          oscillator.connect(gainNode)
+          gainNode.connect(audioContext.destination)
+
+          oscillator.frequency.value = freq
+          oscillator.type = 'sine'
+
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + i * 0.15)
+          gainNode.gain.exponentialDecayTo?.(0.01, audioContext.currentTime + i * 0.15 + 0.3) ||
+            gainNode.gain.setValueAtTime(0.01, audioContext.currentTime + i * 0.15 + 0.3)
+
+          oscillator.start(audioContext.currentTime + i * 0.15)
+          oscillator.stop(audioContext.currentTime + i * 0.15 + 0.3)
+        })
+      }
+
+      // Start the game timer countdown
+      function startGameTimer() {
+        const statusEl = document.getElementById('timer-status')
+        statusEl.textContent = 'Time remaining'
+
+        timerInterval = setInterval(() => {
+          timeRemaining--
+          updateTimerDisplay()
+
+          if (timeRemaining <= 0) {
+            clearInterval(timerInterval)
+            timerInterval = null
+            playEndSound()
+          }
+        }, 1000)
+      }
+
+      // Start the pre-game countdown (1 minute before timer starts)
+      function startPreGameCountdown() {
+        // Clear any existing timers
+        clearInterval(timerInterval)
+        clearInterval(preStartInterval)
+        timerInterval = null
+        preStartInterval = null
+
+        timeRemaining = 180
+        preStartRemaining = 30
+        updatePreStartDisplay()
+
+        preStartInterval = setInterval(() => {
+          preStartRemaining--
+          updatePreStartDisplay()
+
+          if (preStartRemaining <= 0) {
+            clearInterval(preStartInterval)
+            preStartInterval = null
+            startGameTimer()
+          }
+        }, 1000)
+      }
 
       // Shuffle array in place (Fisher-Yates)
       function shuffle(array) {
@@ -296,6 +450,7 @@
         currentBoard = generateBoard()
         renderBoard(currentBoard)
         updateURL(currentBoard)
+        startPreGameCountdown()
       }
 
       // Copy URL to clipboard
@@ -335,6 +490,7 @@
         if (urlBoard) {
           currentBoard = urlBoard
           renderBoard(currentBoard)
+          startPreGameCountdown()
         } else {
           newGame()
         }
